@@ -1,0 +1,83 @@
+import os
+import random
+import time
+from datetime import datetime, timedelta
+import stat
+
+# Function to make directories and files writable
+def make_writable(path):
+    for root, dirs, files in os.walk(path):
+        for dir in dirs:
+            dir_path = os.path.join(root, dir)
+            os.chmod(dir_path, stat.S_IWRITE)
+        for file in files:
+            file_path = os.path.join(root, file)
+            os.chmod(file_path, stat.S_IWRITE)
+
+# Function to backdate file creation time to a random time in the last 10 days
+def backdate_file_creation_time(file_path):
+    random_days = random.randint(0, 10)
+    random_seconds = random.randint(0, 86400)
+    new_creation_time = datetime.now() - timedelta(days=random_days, seconds=random_seconds)
+    new_creation_timestamp = new_creation_time.timestamp()
+    os.utime(file_path, (new_creation_timestamp, new_creation_timestamp))
+
+# Function to rename files in a directory and keep them in their parent directory
+def process_directory(directory):
+    files = os.listdir(directory)
+    files.sort()
+    for i, file_name in enumerate(files):
+        file_path = os.path.join(directory, file_name)
+        if os.path.isfile(file_path):
+            new_file_name = f"{i}.csv"
+            new_file_path = os.path.join(directory, new_file_name)
+            # Handle FileExistsError by renaming the file if it already exists in the destination directory
+            if os.path.exists(new_file_path):
+                base, extension = os.path.splitext(new_file_name)
+                counter = 1
+                while os.path.exists(new_file_path):
+                    new_file_name = f"{base}_{counter}{extension}"
+                    new_file_path = os.path.join(directory, new_file_name)
+                    counter += 1
+            os.rename(file_path, new_file_path)
+            backdate_file_creation_time(new_file_path)
+
+# Function to move files up one directory level within their parent directory
+def move_files_up_one_level(directory):
+    for root, dirs, files in os.walk(directory):
+        for file in files:
+            current_file_path = os.path.join(root, file)
+            parent_dir = os.path.dirname(root)
+            if parent_dir != directory:
+                new_file_path = os.path.join(parent_dir, file)
+                if not os.path.exists(new_file_path):
+                    os.rename(current_file_path, new_file_path)
+
+# Function to delete empty directories
+def delete_empty_directories(directory):
+    for root, dirs, files in os.walk(directory, topdown=False):
+        for dir in dirs:
+            dir_path = os.path.join(root, dir)
+            if not os.listdir(dir_path):
+                os.rmdir(dir_path)
+
+# Function to process all directories and keep files in their parent directory
+def process_all_directories(root_directory):
+    move_files_up_one_level(root_directory)
+    delete_empty_directories(root_directory)
+    for item in os.listdir(root_directory):
+        item_path = os.path.join(root_directory, item)
+        if os.path.isdir(item_path):
+            process_directory(item_path)
+
+# Define the root directory
+root_directory = "../Midterm/data"
+
+# Make the directory writable
+make_writable(root_directory)
+
+# Run the script three times
+for _ in range(3):
+    process_all_directories(root_directory)
+
+print("Script executed successfully.")
